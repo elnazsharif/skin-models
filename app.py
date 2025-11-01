@@ -14,9 +14,11 @@ app = FastAPI(title="Glow AI Recommender – Local YOLO + OpenAI")
 
 device = 0 if torch.cuda.is_available() else "cpu"
 
-# --- OpenAI setup ---
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+# --- 🔑 Your OpenAI API Key (hardcoded here) ---
+# Replace YOUR_OPENAI_KEY_HERE with your real key (starts with sk-)
+client = OpenAI(api_key="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")
+openai_model = "gpt-4o-mini"  # or any model you prefer
+
 
 # ============================================================
 # 2️⃣ DOWNLOAD MODEL WEIGHTS (only first run)
@@ -36,7 +38,7 @@ def download_if_missing(url, dest_path):
 
 os.makedirs("weights", exist_ok=True)
 
-# 🔹 Replace these with your own **Google Drive direct-download links**
+# 🔹 Replace these with your actual Google Drive direct download links
 model_links = {
     "acne_best.pt": "https://drive.google.com/uc?export=download&id=1ob9BO_AsvXL1rBEDCdryxjnWLu4KRrHz",
     "wrinkle_best.pt": "https://drive.google.com/uc?export=download&id=1n-Yz3s0PGwmFSHG_Hu9yQ1gMDNFfkg8n",
@@ -45,7 +47,6 @@ model_links = {
     "pigmentation_best.pt": "https://drive.google.com/uc?export=download&id=1hzkesH6aF0FSKgfX-BpmaJ61X8pFDNpT",
     "pore_redness_best.pt": "https://drive.google.com/uc?export=download&id=1tjrtrIuuE5cA987CzMnekb6lcIRAFC4y",
 }
-
 
 for filename, url in model_links.items():
     download_if_missing(url, f"weights/{filename}")
