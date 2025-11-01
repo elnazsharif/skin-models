@@ -3,11 +3,16 @@ from fastapi.responses import JSONResponse
 from ultralytics import YOLO
 from io import BytesIO
 from PIL import Image
-import torch, base64
+from openai import OpenAI
+import torch, base64, os, json
 
-app = FastAPI(title="Skin Models API")
+# ============================================================
+# 1️⃣  CONFIGURATION
+# ============================================================
 
-# 🔹 Load all models once when the server starts
+app = FastAPI(title="Glow AI Recommender (Local YOLO + OpenAI)")
+
+# --- Load all your trained YOLOv8 models from /weights ---
 MODELS = {
     "acne": YOLO("weights/acne_best.pt"),
     "wrinkle": YOLO("weights/wrinkle_best.pt"),
@@ -19,57 +24,102 @@ MODELS = {
 
 device = 0 if torch.cuda.is_available() else "cpu"
 
+# --- OpenAI API setup ---
+# Make sure you set this as an environment variable in Railway or locally:
+#    export OPENAI_API_KEY="sk-xxxx"
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+
+# ============================================================
+# 2️⃣  HELPER: convert PIL image → base64 for JSON
+# ============================================================
+def pil_to_base64(im_pil):
+    buffer = BytesIO()
+    im_pil.save(buffer, format="JPEG")
+    encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    return f"data:image/jpeg;base64,{encoded}"
+
+
+# ============================================================
+# 3️⃣  MAIN ENDPOINT
+# ============================================================
 @app.post("/receive-image")
 async def receive_image(image: UploadFile = File(...)):
     """
-    Receives an uploaded image from WordPress,
-    runs all YOLO models locally,
-    and returns detections + annotated images (base64) in JSON.
+    Receives uploaded image from WordPress,
+    runs local YOLO models to detect skin concerns,
+    and returns detections + annotated base64 images + GPT recommendations.
     """
     try:
-        # ✅ Read uploaded image into memory
+        # ---------------------------------------------
+        # Step 1. Read uploaded image into memory
+        # ---------------------------------------------
         img_bytes = await image.read()
         img = Image.open(BytesIO(img_bytes)).convert("RGB")
 
         problems = []
         annotated_images = []
 
-        # 🔁 Run through all models
+        # ---------------------------------------------
+        # Step 2. Run all YOLO models locally
+        # ---------------------------------------------
         for name, model in MODELS.items():
-            results = model.predict(img, conf=0.25, iou=0.45, imgsz=640, device=device, verbose=False)
+            results = model.predict(
+                img, conf=0.25, iou=0.45, imgsz=640, device=device, verbose=False
+            )
 
-            # Get detections
             boxes = results[0].boxes
             if boxes is not None and len(boxes) > 0:
-                # Pick the top confidence detection
-                top_conf = float(boxes.conf.max().item())
-                problems.append({"name": name, "confidence": round(top_conf * 100, 2)})
+                conf = float(boxes.conf.max().item())
+                problems.append({"name": name, "confidence": round(conf * 100, 2)})
 
-                # Create annotated image (YOLO draws boxes automatically)
-                annotated = results[0].plot()  # returns a NumPy array with annotations
+                annotated = results[0].plot()
                 im_pil = Image.fromarray(annotated)
+                annotated_images.append(
+                    {"label": name, "proxied_url": pil_to_base64(im_pil)}
+                )
 
-                # Convert to base64 string instead of saving file
-                buffer = BytesIO()
-                im_pil.save(buffer, format="JPEG")
-                encoded_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
-                proxied_url = f"data:image/jpeg;base64,{encoded_img}"
+        # ---------------------------------------------
+        # Step 3. Generate recommendations with OpenAI
+        # ---------------------------------------------
+        recommendations = []
+        if problems:
+            try:
+                # Create a user-friendly prompt for GPT
+                prompt = (
+                    "You are a skincare specialist. Based on these detected skin issues, "
+                    "suggest suitable skincare products or treatments. "
+                    "Return results as a JSON array with title, reason, and product_url fields.\n\n"
+                    f"Detected issues: {json.dumps(problems, indent=2)}"
+                )
 
-                annotated_images.append({"label": name, "proxied_url": proxied_url})
+                completion = client.chat.completions.create(
+                    model="gpt-4o-mini",  # or "gpt-4-turbo"
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "json_object"},
+                )
 
-        # Return in same format as your current API
+                # Parse OpenAI’s structured response safely
+                content = completion.choices[0].message.content
+                data_json = json.loads(content)
+                recommendations = data_json.get("recommendations", [])
+            except Exception as gpt_err:
+                print("⚠️ OpenAI recommendation error:", gpt_err)
+                recommendations = []
+
+        # ---------------------------------------------
+        # Step 4. Build API response for WordPress
+        # ---------------------------------------------
         data = {
             "problems": problems,
             "annotated_images": annotated_images,
-            "recommendations": [],  # (you can fill later with your GPT logic)
+            "recommendations": recommendations,
         }
 
         return JSONResponse(content={"success": True, "data": data})
 
     except Exception as e:
+        print("❌ Error:", e)
         return JSONResponse(
-            content={"success": False, "data": {"message": str(e)}},
-            status_code=500,
+            content={"success": False, "data": {"message": str(e)}}, status_code=500
         )
-
