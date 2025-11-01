@@ -1,28 +1,33 @@
-# Use an official Python image from Docker Hub
+# ---------------------------------------------------------
+# Glow AI Recommender – Optimized Dockerfile for Railway
+# ---------------------------------------------------------
+
+# 1️⃣ Use lightweight Python base image
 FROM python:3.11-slim
 
-# Install some system packages that YOLO and OpenCV need
+# 2️⃣ Install minimal OS packages needed for YOLO and OpenCV
 RUN apt-get update && apt-get install -y \
     git \
     libglib2.0-0 \
     libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set a working folder inside the container
+# 3️⃣ Set working directory inside the container
 WORKDIR /app
 
-# Copy your requirements file first (so it can install dependencies)
+# 4️⃣ Copy only requirements first (for Docker layer caching)
 COPY requirements.txt .
 
-# Install the Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# 5️⃣ Upgrade pip and install Python dependencies without cache
+#    This speeds up installs and reduces image size
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+ && pip install --no-cache-dir -r requirements.txt
 
-# Copy all your other files (app.py, weights, etc.)
+# 6️⃣ Copy the rest of your project files (app.py, weights/, etc.)
 COPY . .
 
-# Tell Railway which port your FastAPI will run on
+# 7️⃣ Expose FastAPI port
 EXPOSE 8000
 
-# Start your app when the container launches
+# 8️⃣ Launch FastAPI app with Uvicorn
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
-
