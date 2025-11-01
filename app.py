@@ -4,15 +4,56 @@ from ultralytics import YOLO
 from io import BytesIO
 from PIL import Image
 from openai import OpenAI
-import torch, base64, os, json
+import torch, base64, os, json, requests
 
 # ============================================================
-# 1️⃣  CONFIGURATION
+# 1️⃣ CONFIGURATION
 # ============================================================
 
-app = FastAPI(title="Glow AI Recommender (Local YOLO + OpenAI)")
+app = FastAPI(title="Glow AI Recommender – Local YOLO + OpenAI")
 
-# --- Load all your trained YOLOv8 models from /weights ---
+device = 0 if torch.cuda.is_available() else "cpu"
+
+# --- OpenAI setup ---
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+# ============================================================
+# 2️⃣ DOWNLOAD MODEL WEIGHTS (only first run)
+# ============================================================
+
+def download_if_missing(url, dest_path):
+    """Download YOLO model weights if not already present"""
+    if not os.path.exists(dest_path):
+        print(f"⬇️ Downloading model: {os.path.basename(dest_path)}")
+        r = requests.get(url)
+        r.raise_for_status()
+        with open(dest_path, "wb") as f:
+            f.write(r.content)
+        print(f"✅ Downloaded {dest_path}")
+    else:
+        print(f"✅ Found existing model: {dest_path}")
+
+os.makedirs("weights", exist_ok=True)
+
+# 🔹 Replace these with your own **Google Drive direct-download links**
+model_links = {
+    "acne_best.pt": "https://drive.google.com/uc?export=download&id=1ob9BO_AsvXL1rBEDCdryxjnWLu4KRrHz",
+    "wrinkle_best.pt": "https://drive.google.com/uc?export=download&id=1n-Yz3s0PGwmFSHG_Hu9yQ1gMDNFfkg8n",
+    "blackhead_best.pt": "https://drive.google.com/uc?export=download&id=1pfwCADIuEPOki5nKriETUUqQ46JqJEv7",
+    "darkcircle_best.pt": "https://drive.google.com/uc?export=download&id=1o9i07SIm1lXCOc_C7Hk_rREM6YaX7aWH",
+    "pigmentation_best.pt": "https://drive.google.com/uc?export=download&id=1hzkesH6aF0FSKgfX-BpmaJ61X8pFDNpT",
+    "pore_redness_best.pt": "https://drive.google.com/uc?export=download&id=1tjrtrIuuE5cA987CzMnekb6lcIRAFC4y",
+}
+
+
+for filename, url in model_links.items():
+    download_if_missing(url, f"weights/{filename}")
+
+# ============================================================
+# 3️⃣ LOAD MODELS
+# ============================================================
+print("🧠 Loading YOLO models into memory...")
 MODELS = {
     "acne": YOLO("weights/acne_best.pt"),
     "wrinkle": YOLO("weights/wrinkle_best.pt"),
@@ -21,17 +62,10 @@ MODELS = {
     "pigmentation": YOLO("weights/pigmentation_best.pt"),
     "pore_redness": YOLO("weights/pore_redness_best.pt"),
 }
-
-device = 0 if torch.cuda.is_available() else "cpu"
-
-# --- OpenAI API setup ---
-# Make sure you set this as an environment variable in Railway or locally:
-#    export OPENAI_API_KEY="sk-xxxx"
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
+print("✅ All models loaded successfully.")
 
 # ============================================================
-# 2️⃣  HELPER: convert PIL image → base64 for JSON
+# 4️⃣ HELPER – Convert PIL image to base64
 # ============================================================
 def pil_to_base64(im_pil):
     buffer = BytesIO()
@@ -39,30 +73,25 @@ def pil_to_base64(im_pil):
     encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
     return f"data:image/jpeg;base64,{encoded}"
 
-
 # ============================================================
-# 3️⃣  MAIN ENDPOINT
+# 5️⃣ MAIN ENDPOINT
 # ============================================================
 @app.post("/receive-image")
 async def receive_image(image: UploadFile = File(...)):
     """
     Receives uploaded image from WordPress,
-    runs local YOLO models to detect skin concerns,
+    runs YOLO models locally,
     and returns detections + annotated base64 images + GPT recommendations.
     """
     try:
-        # ---------------------------------------------
-        # Step 1. Read uploaded image into memory
-        # ---------------------------------------------
+        # Step 1. Read uploaded image
         img_bytes = await image.read()
         img = Image.open(BytesIO(img_bytes)).convert("RGB")
 
         problems = []
         annotated_images = []
 
-        # ---------------------------------------------
-        # Step 2. Run all YOLO models locally
-        # ---------------------------------------------
+        # Step 2. Run detections
         for name, model in MODELS.items():
             results = model.predict(
                 img, conf=0.25, iou=0.45, imgsz=640, device=device, verbose=False
@@ -79,37 +108,31 @@ async def receive_image(image: UploadFile = File(...)):
                     {"label": name, "proxied_url": pil_to_base64(im_pil)}
                 )
 
-        # ---------------------------------------------
-        # Step 3. Generate recommendations with OpenAI
-        # ---------------------------------------------
+        # Step 3. Get OpenAI recommendations
         recommendations = []
         if problems:
             try:
-                # Create a user-friendly prompt for GPT
                 prompt = (
-                    "You are a skincare specialist. Based on these detected skin issues, "
+                    "You are a skincare expert. Based on these detected skin issues, "
                     "suggest suitable skincare products or treatments. "
-                    "Return results as a JSON array with title, reason, and product_url fields.\n\n"
+                    "Return a JSON object with a 'recommendations' array, "
+                    "where each item has 'title', 'reason', and 'product_url'.\n\n"
                     f"Detected issues: {json.dumps(problems, indent=2)}"
                 )
 
                 completion = client.chat.completions.create(
-                    model="gpt-4o-mini",  # or "gpt-4-turbo"
+                    model=openai_model,
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"},
                 )
 
-                # Parse OpenAI’s structured response safely
                 content = completion.choices[0].message.content
                 data_json = json.loads(content)
                 recommendations = data_json.get("recommendations", [])
             except Exception as gpt_err:
                 print("⚠️ OpenAI recommendation error:", gpt_err)
-                recommendations = []
 
-        # ---------------------------------------------
-        # Step 4. Build API response for WordPress
-        # ---------------------------------------------
+        # Step 4. Return final data to WordPress
         data = {
             "problems": problems,
             "annotated_images": annotated_images,
@@ -121,5 +144,6 @@ async def receive_image(image: UploadFile = File(...)):
     except Exception as e:
         print("❌ Error:", e)
         return JSONResponse(
-            content={"success": False, "data": {"message": str(e)}}, status_code=500
+            content={"success": False, "data": {"message": str(e)}},
+            status_code=500,
         )
