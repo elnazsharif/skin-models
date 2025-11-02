@@ -4,7 +4,7 @@ from ultralytics import YOLO
 from io import BytesIO
 from PIL import Image
 from openai import OpenAI
-import torch, base64, os, json, requests
+import torch, base64, os, json
 
 # ============================================================
 # 1️⃣ CONFIGURATION
@@ -14,44 +14,17 @@ app = FastAPI(title="Glow AI Recommender – Local YOLO + OpenAI")
 
 device = 0 if torch.cuda.is_available() else "cpu"
 
+# --- OpenAI setup (read from environment variables on Render) ---
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
-# ============================================================
-# 2️⃣ DOWNLOAD MODEL WEIGHTS (only first run)
-# ============================================================
-
-def download_if_missing(url, dest_path):
-    """Download YOLO model weights if not already present"""
-    if not os.path.exists(dest_path):
-        print(f"⬇️ Downloading model: {os.path.basename(dest_path)}")
-        r = requests.get(url)
-        r.raise_for_status()
-        with open(dest_path, "wb") as f:
-            f.write(r.content)
-        print(f"✅ Downloaded {dest_path}")
-    else:
-        print(f"✅ Found existing model: {dest_path}")
-
-os.makedirs("weights", exist_ok=True)
-
-# 🔹 Replace these with your own **Google Drive direct-download links**
-model_links = {
-    "acne_best.pt": "https://example.com/acne_best.pt",
-    "wrinkle_best.pt": "https://example.com/wrinkle_best.pt",
-    "blackhead_best.pt": "https://example.com/blackhead_best.pt",
-    "darkcircle_best.pt": "https://example.com/darkcircle_best.pt",
-    "pigmentation_best.pt": "https://example.com/pigmentation_best.pt",
-    "pore_redness_best.pt": "https://example.com/pore_redness_best.pt",
-}
-
-for filename, url in model_links.items():
-    download_if_missing(url, f"weights/{filename}")
 
 # ============================================================
-# 3️⃣ LOAD MODELS
+# 2️⃣ LOAD YOLO MODELS (read directly from your repo /weights)
 # ============================================================
-print("🧠 Loading YOLO models into memory...")
+
+print("🧠 Loading YOLO models from local /weights folder...")
+
 MODELS = {
     "acne": YOLO("weights/acne_best.pt"),
     "wrinkle": YOLO("weights/wrinkle_best.pt"),
@@ -60,10 +33,11 @@ MODELS = {
     "pigmentation": YOLO("weights/pigmentation_best.pt"),
     "pore_redness": YOLO("weights/pore_redness_best.pt"),
 }
-print("✅ All models loaded successfully.")
+
+print("✅ All YOLO models loaded successfully.")
 
 # ============================================================
-# 4️⃣ HELPER – Convert PIL image to base64
+# 3️⃣ HELPER – Convert PIL image to base64 (for JSON response)
 # ============================================================
 def pil_to_base64(im_pil):
     buffer = BytesIO()
@@ -71,8 +45,9 @@ def pil_to_base64(im_pil):
     encoded = base64.b64encode(buffer.getvalue()).decode("utf-8")
     return f"data:image/jpeg;base64,{encoded}"
 
+
 # ============================================================
-# 5️⃣ MAIN ENDPOINT
+# 4️⃣ MAIN ENDPOINT
 # ============================================================
 @app.post("/receive-image")
 async def receive_image(image: UploadFile = File(...)):
@@ -82,14 +57,14 @@ async def receive_image(image: UploadFile = File(...)):
     and returns detections + annotated base64 images + GPT recommendations.
     """
     try:
-        # Step 1. Read uploaded image
+        # Step 1️⃣ Read uploaded image
         img_bytes = await image.read()
         img = Image.open(BytesIO(img_bytes)).convert("RGB")
 
         problems = []
         annotated_images = []
 
-        # Step 2. Run detections
+        # Step 2️⃣ Run detections using each model
         for name, model in MODELS.items():
             results = model.predict(
                 img, conf=0.25, iou=0.45, imgsz=640, device=device, verbose=False
@@ -106,7 +81,7 @@ async def receive_image(image: UploadFile = File(...)):
                     {"label": name, "proxied_url": pil_to_base64(im_pil)}
                 )
 
-        # Step 3. Get OpenAI recommendations
+        # Step 3️⃣ Generate recommendations using OpenAI
         recommendations = []
         if problems:
             try:
@@ -130,7 +105,7 @@ async def receive_image(image: UploadFile = File(...)):
             except Exception as gpt_err:
                 print("⚠️ OpenAI recommendation error:", gpt_err)
 
-        # Step 4. Return final data to WordPress
+        # Step 4️⃣ Return combined result to WordPress
         data = {
             "problems": problems,
             "annotated_images": annotated_images,
@@ -145,3 +120,11 @@ async def receive_image(image: UploadFile = File(...)):
             content={"success": False, "data": {"message": str(e)}},
             status_code=500,
         )
+
+
+# ============================================================
+# 5️⃣ ROOT ENDPOINT (optional check)
+# ============================================================
+@app.get("/")
+def root():
+    return {"message": "Glow AI Recommender backend is running successfully!"}
