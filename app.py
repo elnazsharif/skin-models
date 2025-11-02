@@ -14,9 +14,8 @@ app = FastAPI(title="Glow AI Recommender – Local YOLO + OpenAI")
 
 device = 0 if torch.cuda.is_available() else "cpu"
 
-# --- OpenAI setup ---
-client = OpenAI(api_key="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")
-openai_model = "gpt-4o-mini"  # or any model you prefer
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 # ============================================================
 # 2️⃣ DOWNLOAD MODEL WEIGHTS (only first run)
