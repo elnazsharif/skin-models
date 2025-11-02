@@ -2,12 +2,9 @@ fastapi
 uvicorn[standard]
 python-multipart
 pillow
-
-# ✅ CPU-only Torch + matching TorchVision
 torch==2.2.0+cpu
 torchvision==0.17.0+cpu
 -f https://download.pytorch.org/whl/torch_stable.html
-
 ultralytics==8.1.0
 opencv-python-headless==4.10.0.84
 openai
