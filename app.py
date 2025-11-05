@@ -41,10 +41,7 @@ os.makedirs("weights", exist_ok=True)
 model_links = {
     "acne_best.pt": "https://drive.google.com/uc?export=download&id=1ob9BO_AsvXL1rBEDCdryxjnWLu4KRrHz",
     "wrinkle_best.pt": "https://drive.google.com/uc?export=download&id=1n-Yz3s0PGwmFSHG_Hu9yQ1gMDNFfkg8n",
-    "blackhead_best.pt": "https://drive.google.com/uc?export=download&id=1pfwCADIuEPOki5nKriETUUqQ46JqJEv7",
-    "darkcircle_best.pt": "https://drive.google.com/uc?export=download&id=1o9i07SIm1lXCOc_C7Hk_rREM6YaX7aWH",
-    "pigmentation_best.pt": "https://drive.google.com/uc?export=download&id=1hzkesH6aF0FSKgfX-BpmaJ61X8pFDNpT",
-    "pore_redness_best.pt": "https://drive.google.com/uc?export=download&id=1tjrtrIuuE5cA987CzMnekb6lcIRAFC4y",
+   
 }
 
 for filename, url in model_links.items():
@@ -57,10 +54,7 @@ print("🧠 Loading YOLO models into memory...")
 MODELS = {
     "acne": YOLO("weights/acne_best.pt"),
     "wrinkle": YOLO("weights/wrinkle_best.pt"),
-    "blackhead": YOLO("weights/blackhead_best.pt"),
-    "darkcircle": YOLO("weights/darkcircle_best.pt"),
-    "pigmentation": YOLO("weights/pigmentation_best.pt"),
-    "pore_redness": YOLO("weights/pore_redness_best.pt"),
+    
 }
 print("✅ All models loaded successfully.")
 
