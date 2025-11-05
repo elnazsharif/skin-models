@@ -2,9 +2,8 @@ fastapi
 uvicorn[standard]
 python-multipart
 pillow
-numpy
+numpy<2.0.0
 
-# ✅ CPU-only Torch + matching TorchVision
 torch==2.2.0+cpu
 torchvision==0.17.0+cpu
 -f https://download.pytorch.org/whl/torch_stable.html
