@@ -43,6 +43,7 @@ model_links = {
     "pigmentation_best.pt": "https://drive.google.com/uc?export=download&id=1hzkesH6aF0FSKgfX-BpmaJ61X8pFDNpT",
      "wrinkle_best.pt": "https://drive.google.com/uc?export=download&id=1n-Yz3s0PGwmFSHG_Hu9yQ1gMDNFfkg8n",
     "blackhead_best.pt": "https://drive.google.com/uc?export=download&id=1pfwCADIuEPOki5nKriETUUqQ46JqJEv7",
+    "acne6-best.pt": "https://drive.google.com/uc?export=download&id=1cIi4wYajDJAMonhk7l_lfiS2rMK_fJ2-",
 
 
 
@@ -61,6 +62,8 @@ MODELS = {
         "pigmentation": YOLO("weights/pigmentation_best.pt"),
     "wrinkle": YOLO("weights/wrinkle_best.pt"),
     "blackhead": YOLO("weights/blackhead_best.pt"),
+    "acne": YOLO("weights/acne6-best.pt"),
+
 
 
     
