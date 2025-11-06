@@ -39,7 +39,7 @@ os.makedirs("weights", exist_ok=True)
 
 # 🔹 Replace these with your actual Google Drive direct download links
 model_links = {
-    "acne6-best.pt": "https://drive.google.com/uc?export=download&id=1cIi4wYajDJAMonhk7l_lfiS2rMK_fJ2-",
+    "pore_redness_best.pt": "https://drive.google.com/uc?export=download&id=1tjrtrIuuE5cA987CzMnekb6lcIRAFC4y",
 
    
 }
@@ -52,7 +52,7 @@ for filename, url in model_links.items():
 # ============================================================
 print("🧠 Loading YOLO models into memory...")
 MODELS = {
-    "acne": YOLO("weights/acne6-best.pt"),
+    "pore_redness": YOLO("weights/pore_redness_best.pt"),
     
 }
 print("✅ All models loaded successfully.")
