@@ -52,7 +52,7 @@ for filename, url in model_links.items():
 # ============================================================
 print("🧠 Loading YOLO models into memory...")
 MODELS = {
-    "acne": YOLO("weights/acne6_best.pt"),
+    "acne": YOLO("weights/acne6-best.pt"),
     
 }
 print("✅ All models loaded successfully.")
