@@ -40,6 +40,8 @@ os.makedirs("weights", exist_ok=True)
 # 🔹 Replace these with your actual Google Drive direct download links
 model_links = {
     "pore_redness_best.pt": "https://drive.google.com/uc?export=download&id=1tjrtrIuuE5cA987CzMnekb6lcIRAFC4y",
+        "darkcircle_best.pt": "https://drive.google.com/uc?export=download&id=1o9i07SIm1lXCOc_C7Hk_rREM6YaX7aWH",
+
 
    
 }
@@ -53,6 +55,8 @@ for filename, url in model_links.items():
 print("🧠 Loading YOLO models into memory...")
 MODELS = {
     "pore_redness": YOLO("weights/pore_redness_best.pt"),
+        "darkcircle": YOLO("weights/darkcircle_best.pt"),
+
     
 }
 print("✅ All models loaded successfully.")
