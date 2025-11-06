@@ -87,7 +87,7 @@ async def receive_image(image: UploadFile = File(...)):
         # Step 2. Run detections
         for name, model in MODELS.items():
             results = model.predict(
-                img, conf=0.25, iou=0.45, imgsz=640, device=device, verbose=False
+                img, conf=0.01, iou=0.45, imgsz=640, device=device, verbose=False
             )
 
             boxes = results[0].boxes
