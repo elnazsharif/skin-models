@@ -39,7 +39,7 @@ os.makedirs("weights", exist_ok=True)
 
 # 🔹 Replace these with your actual Google Drive direct download links
 model_links = {
-    "darkcircle_best.pt": "https://drive.google.com/uc?export=download&id=1o9i07SIm1lXCOc_C7Hk_rREM6YaX7aWH",
+    "wrinkle_best.pt": "https://drive.google.com/uc?export=download&id=1n-Yz3s0PGwmFSHG_Hu9yQ1gMDNFfkg8n",
 
    
 }
@@ -52,7 +52,7 @@ for filename, url in model_links.items():
 # ============================================================
 print("🧠 Loading YOLO models into memory...")
 MODELS = {
-    "darkcircle": YOLO("weights/darkcircle_best.pt"),
+    "wrinkle": YOLO("weights/wrinkle_best.pt"),
     
 }
 print("✅ All models loaded successfully.")
