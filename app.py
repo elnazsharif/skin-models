@@ -40,7 +40,8 @@ os.makedirs("weights", exist_ok=True)
 # 🔹 Replace these with your actual Google Drive direct download links
 model_links = {
     "acne_best.pt": "https://drive.google.com/uc?export=download&id=1ob9BO_AsvXL1rBEDCdryxjnWLu4KRrHz",
-   
+       "blackhead_best.pt": "https://drive.google.com/uc?export=download&id=1pfwCADIuEPOki5nKriETUUqQ46JqJEv7",
+
    
 }
 
@@ -53,7 +54,7 @@ for filename, url in model_links.items():
 print("🧠 Loading YOLO models into memory...")
 MODELS = {
     "acne": YOLO("weights/acne_best.pt"),
-   
+    "blackhead": YOLO("weights/blackhead_best.pt"),
     
 }
 print("✅ All models loaded successfully.")
