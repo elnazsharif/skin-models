@@ -94,9 +94,9 @@ async def receive_image(
     conf_acne: float = Form(0.10),
     conf_wrinkle: float = Form(0.10),
     conf_eyebag: float = Form(0.10),         # darkcircle model
-    conf_pig_red: float = Form(0.10),        # pigmentation + pore_redness
     conf_blackhead: float = Form(0.10),      # NEW
     conf_pore_red: float = Form(0.10),       # NEW
+    conf_pigmentation: float = Form(0.10),   # ONLY pigmentation
 
     overlap: int = Form(30)
 ):
@@ -112,7 +112,7 @@ async def receive_image(
             "acne":          conf_acne,
             "wrinkle":       conf_wrinkle,
             "darkcircle":    conf_eyebag,
-            "pigmentation":  conf_pig_red,
+            "pigmentation":  conf_pigmentation,
             "pore_redness":  conf_pore_red,
             "blackhead":     conf_blackhead
         }
