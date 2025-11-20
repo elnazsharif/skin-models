@@ -89,10 +89,15 @@ def pil_to_base64(im_pil):
 @app.post("/receive-image")
 async def receive_image(
     image: UploadFile = File(...),
+
+    # 6 confidence values from WordPress admin
     conf_acne: float = Form(0.10),
     conf_wrinkle: float = Form(0.10),
-    conf_eyebag: float = Form(0.10),
-    conf_pig_red: float = Form(0.10),
+    conf_eyebag: float = Form(0.10),         # darkcircle model
+    conf_pig_red: float = Form(0.10),        # pigmentation + pore_redness
+    conf_blackhead: float = Form(0.10),      # NEW
+    conf_pore_red: float = Form(0.10),       # NEW
+
     overlap: int = Form(30)
 ):
     try:
@@ -102,22 +107,22 @@ async def receive_image(
         problems = []
         annotated_images = []
 
-        # map admin settings → model names
+        # Match exact YOLO model keys in MODELS {}
         model_thresholds = {
-            "acne": conf_acne,
-            "wrinkle": conf_wrinkle,
-            "darkcircle": conf_eyebag,
-            "pigmentation": conf_pig_red,
-            "pore_redness": conf_pig_red,
-            "blackhead": 0.10
+            "acne":          conf_acne,
+            "wrinkle":       conf_wrinkle,
+            "darkcircle":    conf_eyebag,
+            "pigmentation":  conf_pig_red,
+            "pore_redness":  conf_pore_red,
+            "blackhead":     conf_blackhead
         }
 
         for name, model in MODELS.items():
-            conf_needed = model_thresholds.get(name, 0.10)
+            th = model_thresholds.get(name, 0.10)
 
             results = model.predict(
                 img,
-                conf=conf_needed,
+                conf=th,
                 iou=overlap / 100,
                 imgsz=640,
                 device=device,
@@ -125,8 +130,10 @@ async def receive_image(
             )
 
             boxes = results[0].boxes
+
             if boxes is not None and len(boxes) > 0:
                 conf = float(boxes.conf.max().item())
+
                 problems.append({
                     "name": name,
                     "confidence": round(conf * 100, 2)
@@ -134,19 +141,20 @@ async def receive_image(
 
                 annotated = results[0].plot()
                 im_pil = Image.fromarray(annotated)
+
                 annotated_images.append({
                     "label": name,
                     "proxied_url": pil_to_base64(im_pil)
                 })
 
-        # GPT recommendations
+        # OpenAI recommendations
         recommendations = []
         if problems:
             prompt = (
                 "You are a skincare expert. Based on these detected skin issues, "
                 "suggest suitable skincare products or treatments. "
-                "Return JSON with a 'recommendations' array.\n\n"
-                f"Detected issues: {json.dumps(problems, indent=2)}"
+                "Return JSON with 'recommendations'.\n\n"
+                f"Detected: {json.dumps(problems, indent=2)}"
             )
 
             try:
@@ -155,10 +163,8 @@ async def receive_image(
                     messages=[{"role": "user", "content": prompt}],
                     response_format={"type": "json_object"}
                 )
-
                 data_json = json.loads(completion.choices[0].message.content)
                 recommendations = data_json.get("recommendations", [])
-
             except Exception as gpt_err:
                 print("GPT error:", gpt_err)
 
@@ -167,7 +173,7 @@ async def receive_image(
             "data": {
                 "problems": problems,
                 "annotated_images": annotated_images,
-                "recommendations": recommendations
+                "recommendations": recommendations,
             }
         })
 
