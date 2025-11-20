@@ -14,10 +14,9 @@ app = FastAPI(title="Glow AI Recommender – Local YOLO + OpenAI")
 
 device = 0 if torch.cuda.is_available() else "cpu"
 
-# --- OpenAI setup (read from environment variables on Render) ---
+# --- OpenAI setup (read from environment variables on Railway) ---
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  
-
+openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 # ============================================================
 # 2️⃣ DOWNLOAD MODEL WEIGHTS (only first run)
@@ -37,19 +36,14 @@ def download_if_missing(url, dest_path):
 
 os.makedirs("weights", exist_ok=True)
 
-# 🔹 Replace these with your actual Google Drive direct download links
 model_links = {
-        "darkcircle_best.pt": "https://drive.google.com/uc?export=download&id=1o9i07SIm1lXCOc_C7Hk_rREM6YaX7aWH",
+    "darkcircle_best.pt":   "https://drive.google.com/uc?export=download&id=1o9i07SIm1lXCOc_C7Hk_rREM6YaX7aWH",
     "pigmentation_best.pt": "https://drive.google.com/uc?export=download&id=1hzkesH6aF0FSKgfX-BpmaJ61X8pFDNpT",
-     "wrinkle_best.pt": "https://drive.google.com/uc?export=download&id=1n-Yz3s0PGwmFSHG_Hu9yQ1gMDNFfkg8n",
-    "blackhead_best.pt": "https://drive.google.com/uc?export=download&id=1pfwCADIuEPOki5nKriETUUqQ46JqJEv7",
-#    "acne6-best.pt": "https://drive.google.com/uc?export=download&id=1cIi4wYajDJAMonhk7l_lfiS2rMK_fJ2-",
-        "pore_redness_best.pt": "https://drive.google.com/uc?export=download&id=1tjrtrIuuE5cA987CzMnekb6lcIRAFC4y",
-
-
-
-
-   
+    "wrinkle_best.pt":      "https://drive.google.com/uc?export=download&id=1n-Yz3s0PGwmFSHG_Hu9yQ1gMDNFfkg8n",
+    "blackhead_best.pt":    "https://drive.google.com/uc?export=download&id=1pfwCADIuEPOki5nKriETUUqQ46JqJEv7",
+    # acne6-best.pt LEFT HERE BUT NOT USED IN MODELS (acne temporarily disabled)
+    "acne6-best.pt":        "https://drive.google.com/uc?export=download&id=1cIi4wYajDJAMonhk7l_lfiS2rMK_fJ2-",
+    "pore_redness_best.pt": "https://drive.google.com/uc?export=download&id=1tjrtrIuuE5cA987CzMnekb6lcIRAFC4y",
 }
 
 for filename, url in model_links.items():
@@ -59,18 +53,16 @@ for filename, url in model_links.items():
 # 3️⃣ LOAD MODELS
 # ============================================================
 print("🧠 Loading YOLO models into memory...")
+
+# ❗ Acne model is intentionally NOT loaded (temporarily disabled)
 MODELS = {
-        "darkcircle":   YOLO("weights/darkcircle_best.pt"),
-        "pigmentation": YOLO("weights/pigmentation_best.pt"),
-        "wrinkle":      YOLO("weights/wrinkle_best.pt"),
-        "blackhead":    YOLO("weights/blackhead_best.pt"),
-      
-        "pore_redness": YOLO("weights/pore_redness_best.pt"),
-
-
-
-    
+    "darkcircle":   YOLO("weights/darkcircle_best.pt"),
+    "pigmentation": YOLO("weights/pigmentation_best.pt"),
+    "wrinkle":      YOLO("weights/wrinkle_best.pt"),
+    "blackhead":    YOLO("weights/blackhead_best.pt"),
+    "pore_redness": YOLO("weights/pore_redness_best.pt"),
 }
+
 print("✅ All models loaded successfully.")
 
 # ============================================================
@@ -89,13 +81,17 @@ def pil_to_base64(im_pil):
 async def receive_image(
     image: UploadFile = File(...),
 
-        conf_blackhead: float = Form(0.10),
-        conf_wrinkle: float = Form(0.10),
-        conf_eyebag: float = Form(0.10),
-        conf_pigmentation: float = Form(0.10),
-        conf_pore_red: float = Form(0.10),
-        overlap: int = Form(30),
+    # We KEEP conf_acne in the signature so WordPress can still send it,
+    # but we do NOT use the acne model for now.
+    conf_acne: float = Form(0.10),
 
+    conf_wrinkle: float = Form(0.10),
+    conf_eyebag: float = Form(0.10),         # darkcircle model
+    conf_blackhead: float = Form(0.10),
+    conf_pore_red: float = Form(0.10),
+    conf_pigmentation: float = Form(0.10),
+
+    overlap: int = Form(30),
 ):
     try:
         img_bytes = await image.read()
@@ -106,12 +102,12 @@ async def receive_image(
 
         # Match exact YOLO model keys in MODELS {}
         model_thresholds = {
-           
-            "wrinkle":       conf_wrinkle,
-            "darkcircle":    conf_eyebag,
-            "pigmentation":  conf_pigmentation,
-            "pore_redness":  conf_pore_red,
-            "blackhead":     conf_blackhead
+            # "acne":        conf_acne,   # <- DISABLED
+            "wrinkle":      conf_wrinkle,
+            "darkcircle":   conf_eyebag,
+            "pigmentation": conf_pigmentation,
+            "pore_redness": conf_pore_red,
+            "blackhead":    conf_blackhead,
         }
 
         for name, model in MODELS.items():
@@ -120,10 +116,10 @@ async def receive_image(
             results = model.predict(
                 img,
                 conf=th,
-                iou=overlap / 100,
+                iou=overlap / 100.0,
                 imgsz=640,
                 device=device,
-                verbose=False
+                verbose=False,
             )
 
             boxes = results[0].boxes
@@ -133,7 +129,7 @@ async def receive_image(
 
                 problems.append({
                     "name": name,
-                    "confidence": round(conf * 100, 2)
+                    "confidence": round(conf * 100.0, 2),
                 })
 
                 annotated = results[0].plot()
@@ -141,7 +137,7 @@ async def receive_image(
 
                 annotated_images.append({
                     "label": name,
-                    "proxied_url": pil_to_base64(im_pil)
+                    "proxied_url": pil_to_base64(im_pil),
                 })
 
         # OpenAI recommendations
@@ -158,7 +154,7 @@ async def receive_image(
                 completion = client.chat.completions.create(
                     model=openai_model,
                     messages=[{"role": "user", "content": prompt}],
-                    response_format={"type": "json_object"}
+                    response_format={"type": "json_object"},
                 )
                 data_json = json.loads(completion.choices[0].message.content)
                 recommendations = data_json.get("recommendations", [])
@@ -171,12 +167,12 @@ async def receive_image(
                 "problems": problems,
                 "annotated_images": annotated_images,
                 "recommendations": recommendations,
-            }
+            },
         })
 
     except Exception as e:
         print("❌ Error:", e)
         return JSONResponse(
             content={"success": False, "data": {"message": str(e)}},
-            status_code=500
+            status_code=500,
         )
