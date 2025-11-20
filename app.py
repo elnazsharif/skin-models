@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from ultralytics import YOLO
 from io import BytesIO
@@ -87,73 +87,93 @@ def pil_to_base64(im_pil):
 # 5️⃣ MAIN ENDPOINT
 # ============================================================
 @app.post("/receive-image")
-async def receive_image(image: UploadFile = File(...)):
-    """
-    Receives uploaded image from WordPress,
-    runs YOLO models locally,
-    and returns detections + annotated base64 images + GPT recommendations.
-    """
+async def receive_image(
+    image: UploadFile = File(...),
+    conf_acne: float = Form(0.10),
+    conf_wrinkle: float = Form(0.10),
+    conf_eyebag: float = Form(0.10),
+    conf_pig_red: float = Form(0.10),
+    overlap: int = Form(30)
+):
     try:
-        # Step 1. Read uploaded image
         img_bytes = await image.read()
         img = Image.open(BytesIO(img_bytes)).convert("RGB")
 
         problems = []
         annotated_images = []
 
-        # Step 2. Run detections
+        # map admin settings → model names
+        model_thresholds = {
+            "acne": conf_acne,
+            "wrinkle": conf_wrinkle,
+            "darkcircle": conf_eyebag,
+            "pigmentation": conf_pig_red,
+            "pore_redness": conf_pig_red,
+            "blackhead": 0.10
+        }
+
         for name, model in MODELS.items():
+            conf_needed = model_thresholds.get(name, 0.10)
+
             results = model.predict(
-                img, conf=0.01, iou=0.45, imgsz=640, device=device, verbose=False
+                img,
+                conf=conf_needed,
+                iou=overlap / 100,
+                imgsz=640,
+                device=device,
+                verbose=False
             )
 
             boxes = results[0].boxes
             if boxes is not None and len(boxes) > 0:
                 conf = float(boxes.conf.max().item())
-                problems.append({"name": name, "confidence": round(conf * 100, 2)})
+                problems.append({
+                    "name": name,
+                    "confidence": round(conf * 100, 2)
+                })
 
                 annotated = results[0].plot()
                 im_pil = Image.fromarray(annotated)
-                annotated_images.append(
-                    {"label": name, "proxied_url": pil_to_base64(im_pil)}
-                )
+                annotated_images.append({
+                    "label": name,
+                    "proxied_url": pil_to_base64(im_pil)
+                })
 
-        # Step 3. Get OpenAI recommendations
+        # GPT recommendations
         recommendations = []
         if problems:
-            try:
-                prompt = (
-                    "You are a skincare expert. Based on these detected skin issues, "
-                    "suggest suitable skincare products or treatments. "
-                    "Return a JSON object with a 'recommendations' array, "
-                    "where each item has 'title', 'reason', and 'product_url'.\n\n"
-                    f"Detected issues: {json.dumps(problems, indent=2)}"
-                )
+            prompt = (
+                "You are a skincare expert. Based on these detected skin issues, "
+                "suggest suitable skincare products or treatments. "
+                "Return JSON with a 'recommendations' array.\n\n"
+                f"Detected issues: {json.dumps(problems, indent=2)}"
+            )
 
+            try:
                 completion = client.chat.completions.create(
                     model=openai_model,
                     messages=[{"role": "user", "content": prompt}],
-                    response_format={"type": "json_object"},
+                    response_format={"type": "json_object"}
                 )
 
-                content = completion.choices[0].message.content
-                data_json = json.loads(content)
+                data_json = json.loads(completion.choices[0].message.content)
                 recommendations = data_json.get("recommendations", [])
+
             except Exception as gpt_err:
-                print("⚠️ OpenAI recommendation error:", gpt_err)
+                print("GPT error:", gpt_err)
 
-        # Step 4. Return final data to WordPress
-        data = {
-            "problems": problems,
-            "annotated_images": annotated_images,
-            "recommendations": recommendations,
-        }
-
-        return JSONResponse(content={"success": True, "data": data})
+        return JSONResponse(content={
+            "success": True,
+            "data": {
+                "problems": problems,
+                "annotated_images": annotated_images,
+                "recommendations": recommendations
+            }
+        })
 
     except Exception as e:
         print("❌ Error:", e)
         return JSONResponse(
             content={"success": False, "data": {"message": str(e)}},
-            status_code=500,
+            status_code=500
         )
