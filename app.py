@@ -41,8 +41,6 @@ model_links = {
     "pigmentation_best.pt": "https://drive.google.com/uc?export=download&id=1hzkesH6aF0FSKgfX-BpmaJ61X8pFDNpT",
     "wrinkle_best.pt":      "https://drive.google.com/uc?export=download&id=1n-Yz3s0PGwmFSHG_Hu9yQ1gMDNFfkg8n",
     "blackhead_best.pt":    "https://drive.google.com/uc?export=download&id=1pfwCADIuEPOki5nKriETUUqQ46JqJEv7",
-    # acne6-best.pt LEFT HERE BUT NOT USED IN MODELS (acne temporarily disabled)
-    "acne6-best.pt":        "https://drive.google.com/uc?export=download&id=1cIi4wYajDJAMonhk7l_lfiS2rMK_fJ2-",
     "pore_redness_best.pt": "https://drive.google.com/uc?export=download&id=1tjrtrIuuE5cA987CzMnekb6lcIRAFC4y",
 }
 
@@ -102,7 +100,7 @@ async def receive_image(
 
         # Match exact YOLO model keys in MODELS {}
         model_thresholds = {
-            # "acne":        conf_acne,   # <- DISABLED
+           
             "wrinkle":      conf_wrinkle,
             "darkcircle":   conf_eyebag,
             "pigmentation": conf_pigmentation,
