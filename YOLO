@@ -64,7 +64,7 @@ MODELS = {
         "pigmentation": YOLO("weights/pigmentation_best.pt"),
         "wrinkle":      YOLO("weights/wrinkle_best.pt"),
         "blackhead":    YOLO("weights/blackhead_best.pt"),
-      #  "acne":         YOLO("weights/acne6-best.pt"),
+      
         "pore_redness": YOLO("weights/pore_redness_best.pt"),
 
 
@@ -88,7 +88,7 @@ def pil_to_base64(im_pil):
 @app.post("/receive-image")
 async def receive_image(
     image: UploadFile = File(...),
-#        conf_acne: float = Form(0.10),
+
         conf_blackhead: float = Form(0.10),
         conf_wrinkle: float = Form(0.10),
         conf_eyebag: float = Form(0.10),
@@ -106,7 +106,7 @@ async def receive_image(
 
         # Match exact YOLO model keys in MODELS {}
         model_thresholds = {
-           "acne":          conf_acne,
+           
             "wrinkle":       conf_wrinkle,
             "darkcircle":    conf_eyebag,
             "pigmentation":  conf_pigmentation,
