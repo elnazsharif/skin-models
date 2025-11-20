@@ -41,7 +41,6 @@ model_links = {
     "pigmentation_best.pt": "https://drive.google.com/uc?export=download&id=1hzkesH6aF0FSKgfX-BpmaJ61X8pFDNpT",
     "wrinkle_best.pt":      "https://drive.google.com/uc?export=download&id=1n-Yz3s0PGwmFSHG_Hu9yQ1gMDNFfkg8n",
     "blackhead_best.pt":    "https://drive.google.com/uc?export=download&id=1pfwCADIuEPOki5nKriETUUqQ46JqJEv7",
-    "pore_redness_best.pt": "https://drive.google.com/uc?export=download&id=1tjrtrIuuE5cA987CzMnekb6lcIRAFC4y",
 }
 
 for filename, url in model_links.items():
@@ -58,7 +57,6 @@ MODELS = {
     "pigmentation": YOLO("weights/pigmentation_best.pt"),
     "wrinkle":      YOLO("weights/wrinkle_best.pt"),
     "blackhead":    YOLO("weights/blackhead_best.pt"),
-    "pore_redness": YOLO("weights/pore_redness_best.pt"),
 }
 
 print("✅ All models loaded successfully.")
@@ -86,7 +84,6 @@ async def receive_image(
     conf_wrinkle: float = Form(0.10),
     conf_eyebag: float = Form(0.10),         # darkcircle model
     conf_blackhead: float = Form(0.10),
-    conf_pore_red: float = Form(0.10),
     conf_pigmentation: float = Form(0.10),
 
     overlap: int = Form(30),
@@ -104,7 +101,6 @@ async def receive_image(
             "wrinkle":      conf_wrinkle,
             "darkcircle":   conf_eyebag,
             "pigmentation": conf_pigmentation,
-            "pore_redness": conf_pore_red,
             "blackhead":    conf_blackhead,
         }
 
