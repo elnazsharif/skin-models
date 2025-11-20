@@ -60,13 +60,12 @@ for filename, url in model_links.items():
 # ============================================================
 print("🧠 Loading YOLO models into memory...")
 MODELS = {
-        "darkcircle": YOLO("weights/darkcircle_best.pt"),
+        "darkcircle":   YOLO("weights/darkcircle_best.pt"),
         "pigmentation": YOLO("weights/pigmentation_best.pt"),
-    "wrinkle": YOLO("weights/wrinkle_best.pt"),
-    "blackhead": YOLO("weights/blackhead_best.pt"),
-    "acne": YOLO("weights/acne6-best.pt"),
+        "wrinkle":      YOLO("weights/wrinkle_best.pt"),
+        "blackhead":    YOLO("weights/blackhead_best.pt"),
+        "acne":         YOLO("weights/acne6-best.pt"),
         "pore_redness": YOLO("weights/pore_redness_best.pt"),
-
 
 
 
@@ -89,16 +88,14 @@ def pil_to_base64(im_pil):
 @app.post("/receive-image")
 async def receive_image(
     image: UploadFile = File(...),
+        conf_acne: float = Form(0.10),
+        conf_blackhead: float = Form(0.10),
+        conf_wrinkle: float = Form(0.10),
+        conf_eyebag: float = Form(0.10),
+        conf_pigmentation: float = Form(0.10),
+        conf_pore_red: float = Form(0.10),
+        overlap: int = Form(30),
 
-    # 6 confidence values from WordPress admin
-    conf_acne: float = Form(0.10),
-    conf_wrinkle: float = Form(0.10),
-    conf_eyebag: float = Form(0.10),         # darkcircle model
-    conf_blackhead: float = Form(0.10),      # NEW
-    conf_pore_red: float = Form(0.10),       # NEW
-    conf_pigmentation: float = Form(0.10),   # ONLY pigmentation
-
-    overlap: int = Form(30)
 ):
     try:
         img_bytes = await image.read()
@@ -109,7 +106,7 @@ async def receive_image(
 
         # Match exact YOLO model keys in MODELS {}
         model_thresholds = {
-            "acne":          conf_acne,
+           "acne":          conf_acne,
             "wrinkle":       conf_wrinkle,
             "darkcircle":    conf_eyebag,
             "pigmentation":  conf_pigmentation,
